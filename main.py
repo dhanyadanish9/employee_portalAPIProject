@@ -7,11 +7,13 @@ from passlib.context import CryptContext
 from pydantic import BaseModel
 from typing import Optional
 import os
+from dotenv import load_dotenv
+load_dotenv()
 
 # ------------------------------------------------------------
 # DATABASE CONFIGURATION
 # ------------------------------------------------------------
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:dhanya@localhost/userdbnew")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -89,11 +91,36 @@ def get_db():
 # ------------------------------------------------------------
 # HELPERS
 # ------------------------------------------------------------
+# def get_password_hash(password: str) -> str:
+#     return pwd_context.hash(password)
+
+# def get_password_hash(password: str) -> str:
+#     # bcrypt supports up to 72 bytes only
+#     if len(password.encode("utf-8")) > 72:
+#         password = password[:72]
+#     return pwd_context.hash(password)
+
+
+# def verify_password(plain: str, hashed: str) -> bool:
+
+#     if len(plain.encode("utf-8")) > 72:
+#         plain = plain[:72]
+#     return pwd_context.verify(plain, hashed)
+
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 def get_password_hash(password: str) -> str:
+    # bcrypt supports only up to 72 bytes
+    password_bytes = password.encode("utf-8")
+    if len(password_bytes) > 72:
+        password = password_bytes[:72].decode("utf-8", errors="ignore")
     return pwd_context.hash(password)
 
-
 def verify_password(plain: str, hashed: str) -> bool:
+    plain_bytes = plain.encode("utf-8")
+    if len(plain_bytes) > 72:
+        plain = plain_bytes[:72].decode("utf-8", errors="ignore")
     return pwd_context.verify(plain, hashed)
 
 
