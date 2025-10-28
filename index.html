@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Turilytix Employee Portal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body { font-family: Arial, sans-serif; background: linear-gradient(to bottom,#f9f9f9,#b4b9f7); padding:30px; }
+    h1 { text-align:center; color:#2d2d7c; }
+    .card { background:white; padding:20px; border-radius:10px; max-width:800px; margin:20px auto; box-shadow:0 4px 8px rgba(0,0,0,0.1); }
+    input, button { padding:8px; margin:5px; border:1px solid #ccc; border-radius:5px; }
+    button { background-color:#4c52e0; color:white; cursor:pointer; }
+    button:hover { background-color:#2d2d7c; }
+    table { width:100%; border-collapse:collapse; margin-top:15px; }
+    th,td { border:1px solid #ccc; padding:8px; text-align:left; }
+    th { background-color:#4c52e0; color:white; }
+    #login-section { text-align:center; margin-top:100px; }
+    #app-section { display:none; }
+  </style>
+</head>
+<body>
+  <h1>Turilytix Employee Portal</h1>
+
+  <!-- LOGIN -->
+  <div id="login-section" class="card">
+    <h2>Admin Login</h2>
+    <input type="text" id="username" placeholder="Username" /><br />
+    <input type="password" id="password" placeholder="Password" /><br />
+    <button onclick="login()">Login</button>
+    <p id="login-msg" style="color:red;"></p>
+  </div>
+
+  <!-- MAIN APP -->
+  <div id="app-section">
+    <div class="card">
+      <h2>Add Employee</h2>
+      <form id="addUserForm" onsubmit="event.preventDefault(); addUser();">
+        <input id="name" name="name" placeholder="Name" required />
+        <input id="age" name="age" type="number" placeholder="Age" required />
+        <input id="job" name="job" placeholder="Job" />
+        <input id="city" name="city" placeholder="City" />
+        <input id="mailid" name="mailid" placeholder="Mail ID" />
+        <input id="phone" name="phone" placeholder="Phone" />
+        <button type="submit">Add User</button>
+      </form>
+      <p id="msg"></p>
+    </div>
+
+    <div class="card">
+      <h2>Filter Employees</h2>
+      <input id="filter-name" placeholder="Name" />
+      <input id="filter-job" placeholder="Job" />
+      <input id="filter-mail" placeholder="Mail ID" />
+      <input id="filter-phone" placeholder="Phone" />
+      <input id="filter-city" placeholder="City" />
+      <button onclick="fetchUsers()">Search</button>
+      <button onclick="clearFilters()">Clear</button>
+
+      <table id="userTable">
+        <thead>
+          <tr><th>Employee ID</th><th>Name</th><th>Age</th><th>Job</th><th>City</th><th>Mail ID</th><th>Phone</th><th>Actions</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = "http://127.0.0.1:8000";
+    let adminLoggedIn = false;
+
+    async function login() {
+      const username = document.getElementById("username").value;
+      const password = document.getElementById("password").value;
+      const res = await fetch(`${API_URL}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const msg = document.getElementById("login-msg");
+      if (res.ok) {
+        msg.textContent = "";
+        adminLoggedIn = true;
+        document.getElementById("login-section").style.display = "none";
+        document.getElementById("app-section").style.display = "block";
+        fetchUsers();
+      } else {
+        msg.textContent = "Invalid login credentials";
+      }
+    }
+
+    async function addUser() {
+      const formData = new FormData(document.getElementById("addUserForm"));
+      const res = await fetch(`${API_URL}/users/`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      document.getElementById("msg").textContent = data.message || "User added!";
+      fetchUsers();
+    }
+
+    async function fetchUsers() {
+      const params = new URLSearchParams({
+        name: document.getElementById("filter-name").value,
+        job: document.getElementById("filter-job").value,
+        mailid: document.getElementById("filter-mail").value,
+        phone: document.getElementById("filter-phone").value,
+        city: document.getElementById("filter-city").value,
+      });
+      const res = await fetch(`${API_URL}/users/?${params.toString()}`);
+      const data = await res.json();
+      const tbody = document.querySelector("#userTable tbody");
+      tbody.innerHTML = "";
+
+      if (data.users && data.users.length) {
+        data.users.forEach(u => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${u.id}</td>
+            <td><input id="name-${u.id}" value="${u.name}" /></td>
+            <td><input id="age-${u.id}" type="number" value="${u.age}" /></td>
+            <td><input id="job-${u.id}" value="${u.job || ''}" /></td>
+            <td><input id="city-${u.id}" value="${u.city || ''}" /></td>
+            <td><input id="mailid-${u.id}" value="${u.mailid || ''}" /></td>
+            <td><input id="phone-${u.id}" value="${u.phone || ''}" /></td>
+            <td>
+              <button onclick="updateUser(${u.id})">Update</button>
+              <button onclick="deleteUser(${u.id})">Delete</button>
+            </td>`;
+          tbody.appendChild(row);
+        });
+      } else {
+        tbody.innerHTML = `<tr><td colspan="8">No users found</td></tr>`;
+      }
+    }
+
+    async function updateUser(id) {
+      const password = prompt("Enter admin password:");
+      if (!password) return alert("Password required!");
+
+      const formData = new FormData();
+      formData.append("name", document.getElementById(`name-${id}`).value);
+      formData.append("age", document.getElementById(`age-${id}`).value);
+      formData.append("job", document.getElementById(`job-${id}`).value);
+      formData.append("city", document.getElementById(`city-${id}`).value);
+      formData.append("mailid", document.getElementById(`mailid-${id}`).value);
+      formData.append("phone", document.getElementById(`phone-${id}`).value);
+      formData.append("password", password);
+
+      const res = await fetch(`${API_URL}/users/${id}`, {
+        method: "PUT",
+        body: formData,
+      });
+      const data = await res.json();
+      alert(data.message);
+      fetchUsers();
+    }
+
+    async function deleteUser(id) {
+      const password = prompt("Enter admin password:");
+      if (!password) return alert("Password required!");
+      const res = await fetch(`${API_URL}/users/${id}?password=${password}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      alert(data.message);
+      fetchUsers();
+    }
+
+    function clearFilters() {
+      document.querySelectorAll("input[id^='filter-']").forEach(i => i.value = "");
+      fetchUsers();
+    }
+  </script>
+</body>
+</html>
